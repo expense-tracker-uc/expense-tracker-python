@@ -46,26 +46,26 @@ def print_summary(summary: Dict):
     # Calculate the maximum category name length for proper alignment
     max_category_length = max(len(cat) for cat in summary['categories'].keys()) if summary['categories'] else 0
     max_category_length = max(max_category_length, len("Category"))
-    
+
     # Print header
     print("\n" + "=" * (max_category_length + 20))
     print(f"{'EXPENSE SUMMARY':^{max_category_length + 20}}")
     print("=" * (max_category_length + 20))
-    
+
     # Print category breakdown
     print("\nCategory Breakdown:")
     print("-" * (max_category_length + 20))
     print(f"{'Category':<{max_category_length}} | {'Amount':>10}")
     print("-" * (max_category_length + 20))
-    
+
     # Sort categories by amount in descending order
-    sorted_categories = sorted(summary['categories'].items(), 
-                             key=lambda x: x[1], 
+    sorted_categories = sorted(summary['categories'].items(),
+                             key=lambda x: x[1],
                              reverse=True)
-    
+
     for category, amount in sorted_categories:
         print(f"{category:<{max_category_length}} | ${amount:>9.2f}")
-    
+
     # Print total
     print("-" * (max_category_length + 20))
     print(f"{'TOTAL':<{max_category_length}} | ${summary['total']:>9.2f}")
@@ -116,7 +116,7 @@ class ExpenseTracker:
         try:
             # Validate date format
             datetime.strptime(date, '%Y-%m-%d')
-            
+
             expense = {
                 'Date': date,
                 'Amount': amount,
@@ -130,105 +130,134 @@ class ExpenseTracker:
         except Exception as e:
             print(f"Error adding expense: {str(e)}")
 
-    def get_expenses(self, start_date: Optional[str] = None, 
+    def get_expenses(self, start_date: Optional[str] = None,
                     end_date: Optional[str] = None,
                     category: Optional[str] = None) -> List[Dict]:
         """Get expenses filtered by date range and/or category."""
         filtered_expenses = []
-        
+
         for expense in self.expenses:
-            expense_date = datetime.strptime(expense['Date'], '%Y-%m-%d')
-            
-            # Apply filters
-            if start_date:
-                start = datetime.strptime(start_date, '%Y-%m-%d')
-                if expense_date < start:
+            try:
+                expense_date = datetime.strptime(expense['Date'], '%Y-%m-%d')
+
+                # Apply filters
+                if start_date:
+                    start = datetime.strptime(start_date, '%Y-%m-%d')
+                    if expense_date < start:
+                        continue
+
+                if end_date:
+                    end = datetime.strptime(end_date, '%Y-%m-%d')
+                    if expense_date > end:
+                        continue
+
+                if category and expense['Category'].lower() != category.lower():
                     continue
-            
-            if end_date:
-                end = datetime.strptime(end_date, '%Y-%m-%d')
-                if expense_date > end:
-                    continue
-            
-            if category and expense['Category'].lower() != category.lower():
+
+                filtered_expenses.append(expense)
+            except ValueError:
+                print(f"Warning: Skipping expense with invalid date: {expense.get('Date', 'Unknown')}")
                 continue
-            
-            filtered_expenses.append(expense)
-            
+
         return filtered_expenses
 
     def get_summary(self) -> Dict:
         """Get summary of expenses by category and total."""
         summary = {'categories': {}, 'total': 0}
-        
+
         for expense in self.expenses:
-            amount = float(expense['Amount'])
-            category = expense['Category']
-            
-            # Update category total
-            if category not in summary['categories']:
-                summary['categories'][category] = 0
-            summary['categories'][category] += amount
-            
-            # Update overall total
-            summary['total'] += amount
-            
+            try:
+                amount = float(expense['Amount'])
+                category = expense['Category']
+
+                # Update category total
+                if category not in summary['categories']:
+                    summary['categories'][category] = 0
+                summary['categories'][category] += amount
+
+                # Update overall total
+                summary['total'] += amount
+            except (ValueError, KeyError):
+                print(f"Warning: Skipping invalid expense entry")
+                continue
+
         return summary
 
 def main():
     print_banner()
     tracker = ExpenseTracker()
-    
+
     while True:
-        print("\n=== Expense Tracker Menu ===")
-        print("1. Add Expense")
-        print("2. View Expenses")
-        print("3. Get Summary")
-        print("4. Exit")
-        
-        choice = input("\nEnter your choice (1-4): ")
-        
-        if choice == '1':
-            date = input("Enter date (YYYY-MM-DD): ")
-            amount = float(input("Enter amount: "))
-            category = input("Enter category: ")
-            description = input("Enter description: ")
-            tracker.add_expense(date, amount, category, description)
-            
-        elif choice == '2':
-            print("\nFilter options:")
-            print("1. View all expenses")
-            print("2. Filter by date range")
-            print("3. Filter by category")
-            
-            filter_choice = input("Enter filter choice (1-3): ")
-            
-            if filter_choice == '1':
-                expenses = tracker.get_expenses()
-            elif filter_choice == '2':
-                start_date = input("Enter start date (YYYY-MM-DD): ")
-                end_date = input("Enter end date (YYYY-MM-DD): ")
-                expenses = tracker.get_expenses(start_date, end_date)
-            elif filter_choice == '3':
-                category = input("Enter category: ")
-                expenses = tracker.get_expenses(category=category)
+        try:
+            print("\n=== Expense Tracker Menu ===")
+            print("1. Add Expense")
+            print("2. View Expenses")
+            print("3. Get Summary")
+            print("4. Exit")
+
+            choice = input("\nEnter your choice (1-4): ")
+
+            if choice == '1':
+                try:
+                    date = input("Enter date (YYYY-MM-DD): ")
+                    amount_input = input("Enter amount: ")
+                    amount = float(amount_input)
+                    category = input("Enter category: ")
+                    description = input("Enter description: ")
+                    tracker.add_expense(date, amount, category, description)
+                except ValueError:
+                    print("Error: Please enter a valid amount (number).")
+                except KeyboardInterrupt:
+                    print("\nOperation cancelled.")
+                    continue
+
+            elif choice == '2':
+                try:
+                    print("\nFilter options:")
+                    print("1. View all expenses")
+                    print("2. Filter by date range")
+                    print("3. Filter by category")
+
+                    filter_choice = input("Enter filter choice (1-3): ")
+
+                    if filter_choice == '1':
+                        expenses = tracker.get_expenses()
+                    elif filter_choice == '2':
+                        start_date = input("Enter start date (YYYY-MM-DD): ")
+                        end_date = input("Enter end date (YYYY-MM-DD): ")
+                        expenses = tracker.get_expenses(start_date, end_date)
+                    elif filter_choice == '3':
+                        category = input("Enter category: ")
+                        expenses = tracker.get_expenses(category=category)
+                    else:
+                        print("Invalid choice!")
+                        continue
+
+                    print_expenses(expenses)
+                except ValueError:
+                    print("Error: Invalid date format. Please use YYYY-MM-DD format.")
+                except KeyboardInterrupt:
+                    print("\nOperation cancelled.")
+                    continue
+
+            elif choice == '3':
+                summary = tracker.get_summary()
+                print_summary(summary)
+
+            elif choice == '4':
+                print("\nThank you for using Expense Tracker!")
+                print("Goodbye!")
+                break
+
             else:
-                print("Invalid choice!")
-                continue
-            
-            print_expenses(expenses)
-                
-        elif choice == '3':
-            summary = tracker.get_summary()
-            print_summary(summary)
-            
-        elif choice == '4':
-            print("\nThank you for using Expense Tracker!")
-            print("Goodbye!")
+                print("Invalid choice! Please try again.")
+
+        except KeyboardInterrupt:
+            print("\n\nGoodbye!")
             break
-            
-        else:
-            print("Invalid choice! Please try again.")
+        except Exception as e:
+            print(f"An unexpected error occurred: {str(e)}")
+            print("Please try again.")
 
 if __name__ == "__main__":
-    main() 
+    main()
